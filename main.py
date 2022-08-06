@@ -31,8 +31,6 @@ def drawShape(frame, x, y, w, h, text):
     cv2.putText(frame, text, (x, y), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (36, 255, 12), 2)
 
 
-
-
 # filter contours by area > 10_000 and then draw it
 def drawSummary(frame, text):
     cv2.putText(frame, text, (10, 450), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (36, 255, 12), 2)
