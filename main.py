@@ -2,6 +2,7 @@ import cv2
 import numpy as np
 from datetime import datetime
 import webcolors
+from math import isclose
 
 
 mouse_x = mouse_y = 0
@@ -24,12 +25,22 @@ def detect_color(event, x, y, flags, params):
         clicked = True
 
 def draw_shape_bottom(frame, x, y, w, h, text, margin_bottom):
-    cv2.putText(frame, text, (x+margin_bottom, y+margin_bottom), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (36, 255, 12), 2)
+    cv2.putText(frame, text, (x+margin_bottom, y+margin_bottom), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (56, 150, 12), 2)
 
 
 def draw_shape(frame, x, y, w, h, text):
     cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 0, 255), 4)
     cv2.putText(frame, text, (x, y), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (36, 255, 12), 2)
+
+
+def detect_colors(frame, contours, orig_frame):
+    for contour in contours:  # check area of counter'
+        area = cv2.contourArea(contour)
+        if(area > 5_000):
+            x, y, w, h = cv2.boundingRect(contour)
+            b,g,r = np.mean(orig_frame[y:y + h, x:x + w], axis=(0,1))
+            draw_shape_bottom(frame, x, y, w, h, f"Average color: {get_colour_name((r,g,b))}", h//2+25)
+    pass
 
 
 # filter contours by area > 10_000 and then draw it
@@ -53,6 +64,7 @@ def detect_shapes(frame, contours):
             p = cv2.arcLength(contour, True)
             vert_count = cv2.approxPolyDP(contour, 0.01 * p, True)
             x, y, w, h = cv2.boundingRect(vert_count)
+
             if area > _biggest_shape['area']:
                 _biggest_shape['area'] = area
                 _biggest_shape['params'] = x, y, w, h
@@ -75,9 +87,8 @@ def detect_shapes(frame, contours):
             elif len(vert_count) == 8:
                 draw_shape(frame, x, y, w, h, "Octagon")
             _total_count += 1
-
     try:
-        if(_biggest_shape['area'] == _smallest_shape['area']):
+        if isclose(_biggest_shape['area'], _smallest_shape['area'], abs_tol=100):
             draw_shape_bottom(frame, *_biggest_shape['params'], "Biggest Shape", margin_bottom=25)
             draw_shape_bottom(frame, *_biggest_shape['params'], "Smallest Shape", margin_bottom=65)
         else:
@@ -87,8 +98,6 @@ def detect_shapes(frame, contours):
         pass
     cv2.putText(frame, f"Total object count: {_total_count}", (20, 25), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (36, 255, 12), 2)
     cv2.putText(frame, f"Triangles: {_triangle_count}", (20, 50), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (36, 255, 12), 2)
-
-
 
 
 
@@ -148,28 +157,66 @@ def detect_Object():
 
 if __name__ == '__main__':
     capture = cv2.VideoCapture("Baby Sensory - Shapes & Transitions with Deep Relaxation Ambient Music & Sound Effects - Baby Sleep.mp4") #webcam live video
-    cv2.namedWindow("track")
-    cv2.createTrackbar("T1", "track", 0, 255, lambda x: x)
-    cv2.createTrackbar("T2", "track", 0, 255, lambda x: x)
+    cv2.namedWindow("threshold")
+    cv2.createTrackbar("T1", "threshold", 0, 255, lambda x: x)
+    cv2.createTrackbar("T2", "threshold", 0, 255, lambda x: x)
+
+    cv2.namedWindow("color")
+    cv2.createTrackbar("H", "color", 0, 180, lambda x: x)
+    cv2.createTrackbar("S", "color", 0, 255, lambda x: x)
+    cv2.createTrackbar("V", "color", 0, 255, lambda x: x)
+    cv2.createTrackbar("HL", "color", 0, 180, lambda x: x)
+    cv2.createTrackbar("SL", "color", 0, 255, lambda x: x)
+    cv2.createTrackbar("VL", "color", 0, 255, lambda x: x)
+
+
     kernel = np.ones((5, 5))
+
+    #Contrast Limited Adaptive Histogram Equalization
     clahe = cv2.createCLAHE(clipLimit=3., tileGridSize=(8, 8))
     while True:
+
         ret, frame = capture.read()
         frame = cv2.bilateralFilter(frame, 9, 75, 75)
+        frame_orig = frame
+        hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
+
         lab  = cv2.cvtColor(frame, cv2.COLOR_BGR2LAB)
-        _l, _a, _b = cv2.split(lab)
-        l2 = clahe.apply(_l)
-        lab = cv2.merge((l2, _a, _b))
+        _l, _a, _b = cv2.split(lab) # split on 3 different channels
+
+        l2 = clahe.apply(_l) #apply CLAHE to the L-channel
+        lab = cv2.merge((l2, _a, _b)) # merge channels
         contrast = cv2.cvtColor(lab, cv2.COLOR_LAB2BGR)
+
         gray = cv2.cvtColor(contrast, cv2.COLOR_BGR2GRAY)
-        thresh1 = cv2.getTrackbarPos("T1", "track")
-        thresh2 = cv2.getTrackbarPos("T2", "track")
+
+        thresh1 = cv2.getTrackbarPos("T1", "threshold")
+        thresh2 = cv2.getTrackbarPos("T2", "threshold")
+
+        h_track = cv2.getTrackbarPos("H", "color")
+        s_track = cv2.getTrackbarPos("S", "color")
+        v_track = cv2.getTrackbarPos("V", "color")
+        hl_track = cv2.getTrackbarPos("HL", "color")
+        sl_track = cv2.getTrackbarPos("SL", "color")
+        vl_track = cv2.getTrackbarPos("VL", "color")
+
+        lower = np.array([hl_track, sl_track, vl_track]) #lower tr for color detection
+        upper = np.array([h_track, s_track, v_track]) #upper tr for color detection
+        mask = cv2.inRange(hsv, lower, upper)
+        res = cv2.bitwise_and(frame, frame, mask=mask)
+        opening = cv2.morphologyEx(mask, cv2.MORPH_OPEN,kernel)
+        closing = cv2.morphologyEx(mask, cv2.MORPH_CLOSE,kernel)
+
         canny = cv2.Canny(gray, thresh1, thresh2)
+
         dil = cv2.dilate(canny, kernel, iterations = 1)
+
         contours, h = cv2.findContours(dil, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
 
+        contours = sorted(contours, key = cv2.contourArea, reverse= True) #sort from biggest to smallest
 
-
+        contours_color, _ = cv2.findContours(closing, cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)
+        contours_color = sorted(contours_color, key = cv2.contourArea, reverse= True) #sort from biggest to smallest
 
         if(clicked):
             clicked_time = datetime.now()
@@ -177,7 +224,10 @@ if __name__ == '__main__':
             clicked = False
         if (datetime.now() - clicked_time).total_seconds() < 2:
             cv2.putText(frame, f"color: {get_colour_name((r, g, b))}", (mouse_x, mouse_y), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (36, 255, 12), 2)
+
         detect_shapes(frame, contours)
+        detect_colors(frame, contours_color, frame_orig)
+        cv2.imshow("mask", mask)
         cv2.imshow("frame", frame)
         cv2.imshow("dil", dil)
         cv2.imshow("canny", canny)
