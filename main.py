@@ -64,7 +64,7 @@ def detectShapes(frame,contours):
                 drawShape(frame, x, y, w, h, "Octagon")
             _total_count += 1
 
-    drawSummary(frame, f"Total object count: {_total_count}")
+    drawSummary(frame, f'''Total object count: {_total_count}; Triangles: {_triangle_count}''')
 
 
 
