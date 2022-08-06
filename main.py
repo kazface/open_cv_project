@@ -85,6 +85,42 @@ def get_colour_name(requested_colour):
         closest_name = closest_colour(requested_colour)
     return closest_name
 
+
+def detect_Object():
+    Live_cam = cv.VideoCapture(0)
+    Live_cam.set(3,1280)
+    Live_cam.set(4,720)
+    Live_cam.set(10,70)
+    threshold = 0.5
+    objectname= []
+    cocofile = 'largest\\coco.names'
+    with open(cocofile,'rt') as f:
+        objectname = f.read().rstrip('\n').split('\n')
+
+    configPath = 'largest\\ssd_mobilenet_v3_large_coco_2020_01_14.pbtxt'
+    weightsPath = 'largest\\frozen_inference_graph.pb'
+
+    net = cv.dnn_DetectionModel(weightsPath,configPath)
+    net.setInputSize(320,320)
+    net.setInputScale(1.0/ 127.5)
+    net.setInputMean((127.5, 127.5, 127.5))
+    net.setInputSwapRB(True)
+
+    while True:
+        success,img = Live_cam.read()
+        objectID, confs, bbox = net.detect(img,confThreshold=threshold)
+        if len(objectID) != 0:
+            for classId, confidence,box in zip(objectID.flatten(),confs.flatten(),bbox):
+                #Add the rectangle to the object the is detect
+                cv.rectangle(img,box,color=(0,255,0),thickness=2)
+                #Add the object name 
+                cv.putText(img,objectname[classId-1].upper(),(box[0]+10,box[1]+30),cv.FONT_HERSHEY_COMPLEX,1,(0,255,0),2)
+                cv.putText(img,str(round(confidence*100,2)),(box[0]+200,box[1]+30),cv.FONT_HERSHEY_COMPLEX,1,(0,255,0),2)
+        cv.imshow("Output",img)
+        cv.waitKey(1)
+
+
+
 if __name__ == '__main__':
 
     capture = cv2.VideoCapture("2D Shapes for Kids.mp4") #webcam live video
