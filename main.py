@@ -1,6 +1,4 @@
-import time
-
-import cv2 as cv2
+import cv2
 import numpy as np
 from datetime import datetime
 import webcolors
@@ -15,35 +13,38 @@ def resize(frame):
     weidth = int(frame.shape[0] * 1)
     height = int(frame.shape[1] * .35)
     dimensions = (weidth,height)
-    return cv.resize(frame, dimensions, interpolation=cv.INTER_AREA)
+    return cv2.resize(frame, dimensions, interpolation=cv2.INTER_AREA)
 
-def detectColor(event, x, y, flags, params):
+def detect_color(event, x, y, flags, params):
     if event == cv2.EVENT_LBUTTONDOWN:
         global r, g, b, clicked, mouse_x, mouse_y
         b, g, r = frame[y, x]
-
         b, g, r = int(b), int(g), int(r)
-
         mouse_x, mouse_y = x, y
-
         clicked = True
 
+def draw_shape_bottom(frame, x, y, w, h, text, margin_bottom):
+    cv2.putText(frame, text, (x+margin_bottom, y+margin_bottom), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (36, 255, 12), 2)
 
 
-
-def drawShape(frame, x, y, w, h, text):
+def draw_shape(frame, x, y, w, h, text):
     cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 0, 255), 4)
     cv2.putText(frame, text, (x, y), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (36, 255, 12), 2)
 
 
 # filter contours by area > 10_000 and then draw it
-def drawSummary(frame, text):
-    cv2.putText(frame, text, (10, 450), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (36, 255, 12), 2)
-
-
-def detectShapes(frame,contours):
+def detect_shapes(frame, contours):
     _triangle_count = 0
     _total_count = 0
+    _biggest_shape = {
+        "area": 0,
+        "params": {0, 0, 0, 0} #x, y, w, h
+    }
+    _smallest_shape = {
+        "area": np.inf,
+        "params": {0, 0, 0, 0} #x, y, w, h
+    }
+
 
     for contour in contours:  # check area of counter
         area = cv2.contourArea(contour)
@@ -52,22 +53,41 @@ def detectShapes(frame,contours):
             p = cv2.arcLength(contour, True)
             vert_count = cv2.approxPolyDP(contour, 0.01 * p, True)
             x, y, w, h = cv2.boundingRect(vert_count)
+            if area > _biggest_shape['area']:
+                _biggest_shape['area'] = area
+                _biggest_shape['params'] = x, y, w, h
+
+            if area < _smallest_shape['area']:
+                _smallest_shape['area'] = area
+                _smallest_shape['params'] = x, y, w, h
+
             if len(vert_count) == 3:
-                drawShape(frame, x, y, w, h, "Triangle")
+                draw_shape(frame, x, y, w, h, "Triangle")
                 _triangle_count += 1
             elif len(vert_count) == 4:
-                drawShape(frame, x, y, w, h, "Rectangle")
+                draw_shape(frame, x, y, w, h, "Rectangle")
             elif len(vert_count) == 5:
-                drawShape(frame, x, y, w, h, "Pentagon")
+                draw_shape(frame, x, y, w, h, "Pentagon")
             elif len(vert_count) == 6:
-                drawShape(frame, x, y, w, h, "Hexagon")
+                draw_shape(frame, x, y, w, h, "Hexagon")
             elif len(vert_count) == 7:
-                drawShape(frame, x, y, w, h, "Heptagon")
+                draw_shape(frame, x, y, w, h, "Heptagon")
             elif len(vert_count) == 8:
-                drawShape(frame, x, y, w, h, "Octagon")
+                draw_shape(frame, x, y, w, h, "Octagon")
             _total_count += 1
 
-    drawSummary(frame, f'''Total object count: {_total_count}; Triangles: {_triangle_count}''')
+    try:
+        if(_biggest_shape['area'] == _smallest_shape['area']):
+            draw_shape_bottom(frame, *_biggest_shape['params'], "Biggest Shape", margin_bottom=25)
+            draw_shape_bottom(frame, *_biggest_shape['params'], "Smallest Shape", margin_bottom=65)
+        else:
+            draw_shape_bottom(frame, *_biggest_shape['params'], "Biggest Shape", margin_bottom=25)
+            draw_shape_bottom(frame, *_smallest_shape['params'], "Smallest Shape", margin_bottom=25)
+    except:
+        pass
+    cv2.putText(frame, f"Total object count: {_total_count}", (20, 25), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (36, 255, 12), 2)
+    cv2.putText(frame, f"Triangles: {_triangle_count}", (20, 50), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (36, 255, 12), 2)
+
 
 
 
@@ -83,10 +103,16 @@ def closest_colour(requested_colour):
     return min_colours[min(min_colours.keys())]
 
 
+def get_colour_name(requested_colour):
+    try:
+        closest_name = webcolors.rgb_to_name(requested_colour)
+    except ValueError:
+        closest_name = closest_colour(requested_colour)
+    return closest_name
 
 
 def detect_Object():
-    Live_cam = cv.VideoCapture(0)
+    Live_cam = cv2.VideoCapture(0)
     Live_cam.set(3,1280)
     Live_cam.set(4,720)
     Live_cam.set(10,70)
@@ -99,7 +125,7 @@ def detect_Object():
     configPath = 'largest\\ssd_mobilenet_v3_large_coco_2020_01_14.pbtxt'
     weightsPath = 'largest\\frozen_inference_graph.pb'
 
-    net = cv.dnn_DetectionModel(weightsPath,configPath)
+    net = cv2.dnn_DetectionModel(weightsPath,configPath)
     net.setInputSize(320,320)
     net.setInputScale(1.0/ 127.5)
     net.setInputMean((127.5, 127.5, 127.5))
@@ -111,24 +137,22 @@ def detect_Object():
         if len(objectID) != 0:
             for classId, confidence,box in zip(objectID.flatten(),confs.flatten(),bbox):
                 #Add the rectangle to the object the is detect
-                cv.rectangle(img,box,color=(0,255,0),thickness=2)
-                #Add the object name 
-                cv.putText(img,objectname[classId-1].upper(),(box[0]+10,box[1]+30),cv.FONT_HERSHEY_COMPLEX,1,(0,255,0),2)
-                cv.putText(img,str(round(confidence*100,2)),(box[0]+200,box[1]+30),cv.FONT_HERSHEY_COMPLEX,1,(0,255,0),2)
-        cv.imshow("Output",resize(img))
-        cv.waitKey(1)
+                cv2.rectangle(img,box,color=(0,255,0),thickness=2)
+                #Add the object name
+                cv2.putText(img,objectname[classId-1].upper(),(box[0]+10,box[1]+30),cv2.FONT_HERSHEY_COMPLEX,1,(0,255,0),2)
+                cv2.putText(img,str(round(confidence*100,2)),(box[0]+200,box[1]+30),cv2.FONT_HERSHEY_COMPLEX,1,(0,255,0),2)
+        cv2.imshow("Output",resize(img))
+        cv2.waitKey(1)
 
 
 
 if __name__ == '__main__':
-
-    capture = cv2.VideoCapture("2D Shapes for Kids.mp4") #webcam live video
+    capture = cv2.VideoCapture("Baby Sensory - Shapes & Transitions with Deep Relaxation Ambient Music & Sound Effects - Baby Sleep.mp4") #webcam live video
     cv2.namedWindow("track")
     cv2.createTrackbar("T1", "track", 0, 255, lambda x: x)
     cv2.createTrackbar("T2", "track", 0, 255, lambda x: x)
     kernel = np.ones((5, 5))
     clahe = cv2.createCLAHE(clipLimit=3., tileGridSize=(8, 8))
-
     while True:
         ret, frame = capture.read()
         frame = cv2.bilateralFilter(frame, 9, 75, 75)
@@ -136,40 +160,29 @@ if __name__ == '__main__':
         _l, _a, _b = cv2.split(lab)
         l2 = clahe.apply(_l)
         lab = cv2.merge((l2, _a, _b))
-
         contrast = cv2.cvtColor(lab, cv2.COLOR_LAB2BGR)
-
         gray = cv2.cvtColor(contrast, cv2.COLOR_BGR2GRAY)
-
         thresh1 = cv2.getTrackbarPos("T1", "track")
         thresh2 = cv2.getTrackbarPos("T2", "track")
         canny = cv2.Canny(gray, thresh1, thresh2)
         dil = cv2.dilate(canny, kernel, iterations = 1)
-
         contours, h = cv2.findContours(dil, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
+
+
+
 
         if(clicked):
             clicked_time = datetime.now()
             # cv2.putText(frame, f"R = {r}, G={g}, B={b}", (mouse_x, mouse_y), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (36, 255, 12), 2)
             clicked = False
-
         if (datetime.now() - clicked_time).total_seconds() < 2:
             cv2.putText(frame, f"color: {get_colour_name((r, g, b))}", (mouse_x, mouse_y), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (36, 255, 12), 2)
-
-
-        detectShapes(frame, contours)
-
+        detect_shapes(frame, contours)
         cv2.imshow("frame", frame)
         cv2.imshow("dil", dil)
         cv2.imshow("canny", canny)
-
-        cv2.setMouseCallback("frame", detectColor)
-
-
-
-
+        cv2.setMouseCallback("frame", detect_color)
         k = cv2.waitKey(1) & 0xFF
         if k == 27:
             break
-
     cv2.destroyAllWindows()
