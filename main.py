@@ -11,6 +11,11 @@ r = g = b = 0
 clicked = False
 clicked_time = datetime.now()
 
+def resize(frame):
+    weidth = int(frame.shape[0] * 1)
+    height = int(frame.shape[1] * .35)
+    dimensions = (weidth,height)
+    return cv.resize(frame, dimensions, interpolation=cv.INTER_AREA)
 
 def detectColor(event, x, y, flags, params):
     if event == cv2.EVENT_LBUTTONDOWN:
@@ -78,12 +83,6 @@ def closest_colour(requested_colour):
     return min_colours[min(min_colours.keys())]
 
 
-def get_colour_name(requested_colour):
-    try:
-        closest_name = webcolors.rgb_to_name(requested_colour)
-    except ValueError:
-        closest_name = closest_colour(requested_colour)
-    return closest_name
 
 
 def detect_Object():
@@ -91,7 +90,7 @@ def detect_Object():
     Live_cam.set(3,1280)
     Live_cam.set(4,720)
     Live_cam.set(10,70)
-    threshold = 0.5
+    threshold = 0.45
     objectname= []
     cocofile = 'largest\\coco.names'
     with open(cocofile,'rt') as f:
@@ -116,7 +115,7 @@ def detect_Object():
                 #Add the object name 
                 cv.putText(img,objectname[classId-1].upper(),(box[0]+10,box[1]+30),cv.FONT_HERSHEY_COMPLEX,1,(0,255,0),2)
                 cv.putText(img,str(round(confidence*100,2)),(box[0]+200,box[1]+30),cv.FONT_HERSHEY_COMPLEX,1,(0,255,0),2)
-        cv.imshow("Output",img)
+        cv.imshow("Output",resize(img))
         cv.waitKey(1)
 
 
