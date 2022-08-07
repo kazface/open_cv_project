@@ -11,47 +11,45 @@ clicked = False
 clicked_time = datetime.now()
 
 def number_of_objects():
-    original = cv.imread('brightbullet.png')
+    original = cv2.imread('brightbullet.png')
 
     # Convert image in grayscale
-    gray_image = cv.cvtColor(original, cv.COLOR_BGR2GRAY)
+    gray_image = cv2.cvtColor(original, cv2.COLOR_BGR2GRAY)
     plt.subplot(221)
     plt.title('Grayscale image')
     plt.imshow(gray_image, cmap="gray", vmin=0, vmax=255)
 
     # Local adaptative threashold
-    threashold = cv.adaptiveThreshold(gray_image, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY, 255, 19)
-    threashold = cv.bitwise_not(threashold)
+    threashold = cv2.adaptiveThreshold(gray_image, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 255, 19)
+    threashold = cv2.bitwise_not(threashold)
     plt.subplot(221)
     plt.title('Local adapatative threashold')
     plt.imshow(threashold, cmap="gray", vmin=0, vmax=255)
 
     # Dilatation et erosion
     kernel = np.ones((15,15), np.uint8)
-    imgae_dilation = cv.dilate(threashold, kernel, iterations=1)
-    imgae_erode = cv.erode(imgae_dilation,kernel, iterations=1)
+    imgae_dilation = cv2.dilate(threashold, kernel, iterations=1)
+    imgae_erode = cv2.erode(imgae_dilation,kernel, iterations=1)
     # clean all noise after dilatation and erosion
-    imgae_erode = cv.medianBlur(imgae_erode, 7)
-
+    imgae_erode = cv2.medianBlur(imgae_erode, 7)
     plt.subplot(221)
     plt.title('Dilatation + erosion')
     plt.imshow(imgae_erode, cmap="gray", vmin=0, vmax=255)
-
-
     # Labeling
-
-    ret, labels = cv.connectedComponents(imgae_erode)
+    ret, labels = cv2.connectedComponents(imgae_erode)
     label_hue = np.uint8(179 * labels / np.max(labels))
     blank_ch = 255 * np.ones_like(label_hue)
-    labeled_image = cv.merge([label_hue, blank_ch, blank_ch])
-    labeled_image = cv.cvtColor(labeled_image, cv.COLOR_HSV2BGR)
+    labeled_image = cv2.merge([label_hue, blank_ch, blank_ch])
+    labeled_image = cv2.cvtColor(labeled_image, cv2.COLOR_HSV2BGR)
     labeled_image[label_hue == 0] = 0
-
     plt.subplot(222)
     plt.title('Objects counted:'+ str(ret-1))
     plt.imshow(labeled_image,cmap="gray", vmin=0, vmax=255)
     print('objects number is:', ret-1)
     plt.show()
+
+
+
 
 def resize(frame):
     weidth = int(frame.shape[0] * 1)
@@ -67,8 +65,8 @@ def detect_color(event, x, y, flags, params):
         mouse_x, mouse_y = x, y
         clicked = True
 
-def draw_shape_bottom(frame, x, y, w, h, text, margin_bottom):
-    cv2.putText(frame, text, (x+margin_bottom, y+margin_bottom), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (56, 150, 12), 2)
+def draw_shape_bottom(frame, x, y, w, h, text, margin_bottom, font_suze = 0.5):
+    cv2.putText(frame, text, (x, y+margin_bottom), cv2.FONT_HERSHEY_SIMPLEX, font_suze, (56, 150, 12), 2)
 
 
 def draw_shape(frame, x, y, w, h, text):
@@ -82,13 +80,15 @@ def detect_colors(frame, contours, orig_frame):
         if(area > 5_000):
             x, y, w, h = cv2.boundingRect(contour)
             b,g,r = np.mean(orig_frame[y:y + h, x:x + w], axis=(0,1))
-            draw_shape_bottom(frame, x, y, w, h, f"Average color: {get_colour_name((r,g,b))}", h//2+25)
+            draw_shape_bottom(frame, x, y, w, h, f"Average color: {get_colour_name((r,g,b))}", h//2, font_suze=0.4)
     pass
 
 
-# filter contours by area > 10_000 and then draw it
+# filter contours by area > 6000 and then draw it
 def detect_shapes(frame, contours):
     _triangle_count = 0
+    _rectangle_count = 0
+
     _total_count = 0
     _biggest_shape = {
         "area": 0,
@@ -102,25 +102,23 @@ def detect_shapes(frame, contours):
 
     for contour in contours:  # check area of counter
         area = cv2.contourArea(contour)
-        if area > 5_000:
+        if area > 3_000:
             cv2.drawContours(frame, contour, -1, (200,200,0),3)
             p = cv2.arcLength(contour, True)
-            vert_count = cv2.approxPolyDP(contour, 0.01 * p, True)
+            vert_count = cv2.approxPolyDP(contour, 0.1 * p, True)
             x, y, w, h = cv2.boundingRect(vert_count)
-
             if area > _biggest_shape['area']:
                 _biggest_shape['area'] = area
                 _biggest_shape['params'] = x, y, w, h
-
             if area < _smallest_shape['area']:
                 _smallest_shape['area'] = area
                 _smallest_shape['params'] = x, y, w, h
-
             if len(vert_count) == 3:
                 draw_shape(frame, x, y, w, h, "Triangle")
                 _triangle_count += 1
             elif len(vert_count) == 4:
                 draw_shape(frame, x, y, w, h, "Rectangle")
+                _rectangle_count += 1
             elif len(vert_count) == 5:
                 draw_shape(frame, x, y, w, h, "Pentagon")
             elif len(vert_count) == 6:
@@ -139,9 +137,10 @@ def detect_shapes(frame, contours):
             draw_shape_bottom(frame, *_smallest_shape['params'], "Smallest Shape", margin_bottom=25)
     except:
         pass
+
     cv2.putText(frame, f"Total object count: {_total_count}", (20, 25), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (36, 255, 12), 2)
     cv2.putText(frame, f"Triangles: {_triangle_count}", (20, 50), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (36, 255, 12), 2)
-
+    cv2.putText(frame, f"Rectangles: {_rectangle_count}", (20, 75), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (36, 255, 12), 2)
 
 
 def closest_colour(requested_colour):
@@ -199,11 +198,10 @@ def detect_Object():
 
 
 if __name__ == '__main__':
-    capture = cv2.VideoCapture("Baby Sensory - Shapes & Transitions with Deep Relaxation Ambient Music & Sound Effects - Baby Sleep.mp4") #webcam live video
+    capture = cv2.VideoCapture("sample1.mp4") #webcam live video
     cv2.namedWindow("threshold")
     cv2.createTrackbar("T1", "threshold", 0, 255, lambda x: x)
     cv2.createTrackbar("T2", "threshold", 0, 255, lambda x: x)
-
     cv2.namedWindow("color")
     cv2.createTrackbar("H", "color", 0, 180, lambda x: x)
     cv2.createTrackbar("S", "color", 0, 255, lambda x: x)
@@ -211,10 +209,7 @@ if __name__ == '__main__':
     cv2.createTrackbar("HL", "color", 0, 180, lambda x: x)
     cv2.createTrackbar("SL", "color", 0, 255, lambda x: x)
     cv2.createTrackbar("VL", "color", 0, 255, lambda x: x)
-
-
     kernel = np.ones((5, 5))
-
     #Contrast Limited Adaptive Histogram Equalization
     clahe = cv2.createCLAHE(clipLimit=3., tileGridSize=(8, 8))
     while True:
