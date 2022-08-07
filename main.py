@@ -3,12 +3,55 @@ import numpy as np
 from datetime import datetime
 import webcolors
 from math import isclose
-
+import matplotlib.pyplot as plt
 
 mouse_x = mouse_y = 0
 r = g = b = 0
 clicked = False
 clicked_time = datetime.now()
+
+def number_of_objects():
+    original = cv.imread('brightbullet.png')
+
+    # Convert image in grayscale
+    gray_image = cv.cvtColor(original, cv.COLOR_BGR2GRAY)
+    plt.subplot(221)
+    plt.title('Grayscale image')
+    plt.imshow(gray_image, cmap="gray", vmin=0, vmax=255)
+
+    # Local adaptative threashold
+    threashold = cv.adaptiveThreshold(gray_image, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY, 255, 19)
+    threashold = cv.bitwise_not(threashold)
+    plt.subplot(221)
+    plt.title('Local adapatative threashold')
+    plt.imshow(threashold, cmap="gray", vmin=0, vmax=255)
+
+    # Dilatation et erosion
+    kernel = np.ones((15,15), np.uint8)
+    imgae_dilation = cv.dilate(threashold, kernel, iterations=1)
+    imgae_erode = cv.erode(imgae_dilation,kernel, iterations=1)
+    # clean all noise after dilatation and erosion
+    imgae_erode = cv.medianBlur(imgae_erode, 7)
+
+    plt.subplot(221)
+    plt.title('Dilatation + erosion')
+    plt.imshow(imgae_erode, cmap="gray", vmin=0, vmax=255)
+
+
+    # Labeling
+
+    ret, labels = cv.connectedComponents(imgae_erode)
+    label_hue = np.uint8(179 * labels / np.max(labels))
+    blank_ch = 255 * np.ones_like(label_hue)
+    labeled_image = cv.merge([label_hue, blank_ch, blank_ch])
+    labeled_image = cv.cvtColor(labeled_image, cv.COLOR_HSV2BGR)
+    labeled_image[label_hue == 0] = 0
+
+    plt.subplot(222)
+    plt.title('Objects counted:'+ str(ret-1))
+    plt.imshow(labeled_image,cmap="gray", vmin=0, vmax=255)
+    print('objects number is:', ret-1)
+    plt.show()
 
 def resize(frame):
     weidth = int(frame.shape[0] * 1)
