@@ -105,7 +105,7 @@ def detect_shapes(frame, contours):
         if area > 3_000:
             cv2.drawContours(frame, contour, -1, (200,200,0),3)
             p = cv2.arcLength(contour, True)
-            vert_count = cv2.approxPolyDP(contour, 0.1 * p, True)
+            vert_count = cv2.approxPolyDP(contour, 0.01 * p, True)
             x, y, w, h = cv2.boundingRect(vert_count)
             if area > _biggest_shape['area']:
                 _biggest_shape['area'] = area
