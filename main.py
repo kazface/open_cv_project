@@ -102,7 +102,7 @@ def detect_shapes(frame, contours):
 
     for contour in contours:  # check area of counter
         area = cv2.contourArea(contour)
-        if area > 3_000:
+        if area > 6_000:
             cv2.drawContours(frame, contour, -1, (200,200,0),3)
             p = cv2.arcLength(contour, True)
             vert_count = cv2.approxPolyDP(contour, 0.01 * p, True)
@@ -153,7 +153,6 @@ def closest_colour(requested_colour):
         min_colours[(rd + gd + bd)] = name
     return min_colours[min(min_colours.keys())]
 
-
 def get_colour_name(requested_colour):
     try:
         closest_name = webcolors.rgb_to_name(requested_colour)
@@ -202,6 +201,7 @@ if __name__ == '__main__':
     cv2.namedWindow("threshold")
     cv2.createTrackbar("T1", "threshold", 0, 255, lambda x: x)
     cv2.createTrackbar("T2", "threshold", 0, 255, lambda x: x)
+
     cv2.namedWindow("color")
     cv2.createTrackbar("H", "color", 0, 180, lambda x: x)
     cv2.createTrackbar("S", "color", 0, 255, lambda x: x)
@@ -209,14 +209,15 @@ if __name__ == '__main__':
     cv2.createTrackbar("HL", "color", 0, 180, lambda x: x)
     cv2.createTrackbar("SL", "color", 0, 255, lambda x: x)
     cv2.createTrackbar("VL", "color", 0, 255, lambda x: x)
+
     kernel = np.ones((5, 5))
+
     #Contrast Limited Adaptive Histogram Equalization
     clahe = cv2.createCLAHE(clipLimit=3., tileGridSize=(8, 8))
     while True:
-
         ret, frame = capture.read()
+        frame_orig = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
         frame = cv2.bilateralFilter(frame, 9, 75, 75)
-        frame_orig = frame
         hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
 
         lab  = cv2.cvtColor(frame, cv2.COLOR_BGR2LAB)
@@ -240,16 +241,15 @@ if __name__ == '__main__':
 
         lower = np.array([hl_track, sl_track, vl_track]) #lower tr for color detection
         upper = np.array([h_track, s_track, v_track]) #upper tr for color detection
+
         mask = cv2.inRange(hsv, lower, upper)
         res = cv2.bitwise_and(frame, frame, mask=mask)
-        opening = cv2.morphologyEx(mask, cv2.MORPH_OPEN,kernel)
-        closing = cv2.morphologyEx(mask, cv2.MORPH_CLOSE,kernel)
+        opening = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)
+        closing = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel)
 
         canny = cv2.Canny(gray, thresh1, thresh2)
-
         dil = cv2.dilate(canny, kernel, iterations = 1)
-
-        contours, h = cv2.findContours(dil, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
+        contours, h = cv2.findContours(dil, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
         contours = sorted(contours, key = cv2.contourArea, reverse= True) #sort from biggest to smallest
 
@@ -265,8 +265,11 @@ if __name__ == '__main__':
 
         detect_shapes(frame, contours)
         detect_colors(frame, contours_color, frame_orig)
+        cv2.imshow("gray", gray)
         cv2.imshow("mask", mask)
         cv2.imshow("frame", frame)
+        cv2.imshow("orig", frame_orig)
+
         cv2.imshow("dil", dil)
         cv2.imshow("canny", canny)
         cv2.setMouseCallback("frame", detect_color)
