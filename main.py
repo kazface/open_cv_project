@@ -98,13 +98,12 @@ def detect_shapes(frame, contours):
         "params": {0, 0, 0, 0} #x, y, w, h
     }
 
-
     for contour in contours:  # check area of counter
         area = cv2.contourArea(contour)
-        if area > 6_000:
+        if area > 5_000:
             cv2.drawContours(frame, contour, -1, (200,200,0),3)
             p = cv2.arcLength(contour, True)
-            vert_count = cv2.approxPolyDP(contour, 0.01 * p, True)
+            vert_count = cv2.approxPolyDP(contour, 0.02 * p, True)
             x, y, w, h = cv2.boundingRect(vert_count)
             if area > _biggest_shape['area']:
                 _biggest_shape['area'] = area
@@ -269,9 +268,7 @@ if __name__ == '__main__':
         clahe = cv2.createCLAHE(clipLimit=3., tileGridSize=(8, 8))
         while True:
             ret, frame = capture.read()
-            cv2.imshow("orig", frame)
 
-            frame_orig = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
             frame = cv2.bilateralFilter(frame, 9, 75, 75)
             hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
 
@@ -302,7 +299,7 @@ if __name__ == '__main__':
 
             canny = cv2.Canny(gray, thresh1, thresh2)
             dil = cv2.dilate(canny, kernel, iterations = 1)
-            contours, h = cv2.findContours(dil, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+            contours, h = cv2.findContours(dil, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
 
 
 
@@ -311,7 +308,6 @@ if __name__ == '__main__':
 
             contours_color, _ = cv2.findContours(closing, cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)
             contours_color = sorted(contours_color, key = cv2.contourArea, reverse= True) #sort from biggest to smallest
-
 
 
             if(clicked):
@@ -323,7 +319,6 @@ if __name__ == '__main__':
 
             detect_shapes(frame, contours)
             detect_colors(frame, contours_color)
-            cv2.imshow("gray", gray)
             cv2.imshow("mask", mask)
             cv2.imshow("frame", frame)
             cv2.imshow("dil", dil)
