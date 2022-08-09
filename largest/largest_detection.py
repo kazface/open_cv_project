@@ -14,8 +14,6 @@ def Lobject():
     cv2.drawContours(image,contours,-1,(0,255,0),3)
     sorted_contours= sorted(contours, key=cv2.contourArea, reverse= True)
 
-
-    
     for (i,c) in enumerate(sorted_contours):
         mask = np.zeros(image.shape[:2], np.uint8)
         cv2.fillPoly(mask, pts =[np.asarray(c)], color=(1))

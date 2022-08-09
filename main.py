@@ -4,7 +4,7 @@ from datetime import datetime
 import webcolors
 from math import isclose
 import matplotlib.pyplot as plt
-
+from largest_detection import  Lobject as largest_detection
 mouse_x = mouse_y = 0
 r = g = b = 0
 clicked = False
@@ -221,6 +221,8 @@ if __name__ == '__main__':
         print("1. Shape detection and color detection (with shape area analysis) (video/webcam)")
         print("2. Detect Objects (video/webcam)")
         print("3. Number of objects (photo)")
+        print("4. Largest detection (photo)")
+
         choice = input()
         if choice.isdigit():
             break
@@ -231,6 +233,8 @@ if __name__ == '__main__':
     if(choice == "3"):
         number_of_objects()
 
+    if(choice == "4"):
+        largest_detection()
     if(choice == "1"):
 
         while True:
