@@ -50,7 +50,6 @@ def number_of_objects():
 
 
 
-
 def resize(frame):
     weidth = int(frame.shape[0] * 1)
     height = int(frame.shape[1] * .35)
@@ -197,83 +196,98 @@ def detect_Object():
 
 
 if __name__ == '__main__':
-    capture = cv2.VideoCapture("sample1.mp4") #webcam live video
-    cv2.namedWindow("threshold")
-    cv2.createTrackbar("T1", "threshold", 0, 255, lambda x: x)
-    cv2.createTrackbar("T2", "threshold", 0, 255, lambda x: x)
 
-    cv2.namedWindow("color")
-    cv2.createTrackbar("H", "color", 0, 180, lambda x: x)
-    cv2.createTrackbar("S", "color", 0, 255, lambda x: x)
-    cv2.createTrackbar("V", "color", 0, 255, lambda x: x)
-    cv2.createTrackbar("HL", "color", 0, 180, lambda x: x)
-    cv2.createTrackbar("SL", "color", 0, 255, lambda x: x)
-    cv2.createTrackbar("VL", "color", 0, 255, lambda x: x)
-
-    kernel = np.ones((5, 5))
-
-    #Contrast Limited Adaptive Histogram Equalization
-    clahe = cv2.createCLAHE(clipLimit=3., tileGridSize=(8, 8))
     while True:
-        ret, frame = capture.read()
-        frame_orig = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
-        frame = cv2.bilateralFilter(frame, 9, 75, 75)
-        hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
-
-        lab  = cv2.cvtColor(frame, cv2.COLOR_BGR2LAB)
-        _l, _a, _b = cv2.split(lab) # split on 3 different channels
-
-        l2 = clahe.apply(_l) #apply CLAHE to the L-channel
-        lab = cv2.merge((l2, _a, _b)) # merge channels
-        contrast = cv2.cvtColor(lab, cv2.COLOR_LAB2BGR)
-
-        gray = cv2.cvtColor(contrast, cv2.COLOR_BGR2GRAY)
-
-        thresh1 = cv2.getTrackbarPos("T1", "threshold")
-        thresh2 = cv2.getTrackbarPos("T2", "threshold")
-
-        h_track = cv2.getTrackbarPos("H", "color")
-        s_track = cv2.getTrackbarPos("S", "color")
-        v_track = cv2.getTrackbarPos("V", "color")
-        hl_track = cv2.getTrackbarPos("HL", "color")
-        sl_track = cv2.getTrackbarPos("SL", "color")
-        vl_track = cv2.getTrackbarPos("VL", "color")
-
-        lower = np.array([hl_track, sl_track, vl_track]) #lower tr for color detection
-        upper = np.array([h_track, s_track, v_track]) #upper tr for color detection
-
-        mask = cv2.inRange(hsv, lower, upper)
-        res = cv2.bitwise_and(frame, frame, mask=mask)
-        opening = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)
-        closing = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel)
-
-        canny = cv2.Canny(gray, thresh1, thresh2)
-        dil = cv2.dilate(canny, kernel, iterations = 1)
-        contours, h = cv2.findContours(dil, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-
-        contours = sorted(contours, key = cv2.contourArea, reverse= True) #sort from biggest to smallest
-
-        contours_color, _ = cv2.findContours(closing, cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)
-        contours_color = sorted(contours_color, key = cv2.contourArea, reverse= True) #sort from biggest to smallest
-
-        if(clicked):
-            clicked_time = datetime.now()
-            # cv2.putText(frame, f"R = {r}, G={g}, B={b}", (mouse_x, mouse_y), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (36, 255, 12), 2)
-            clicked = False
-        if (datetime.now() - clicked_time).total_seconds() < 2:
-            cv2.putText(frame, f"color: {get_colour_name((r, g, b))}", (mouse_x, mouse_y), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (36, 255, 12), 2)
-
-        detect_shapes(frame, contours)
-        detect_colors(frame, contours_color, frame_orig)
-        cv2.imshow("gray", gray)
-        cv2.imshow("mask", mask)
-        cv2.imshow("frame", frame)
-        cv2.imshow("orig", frame_orig)
-
-        cv2.imshow("dil", dil)
-        cv2.imshow("canny", canny)
-        cv2.setMouseCallback("frame", detect_color)
-        k = cv2.waitKey(1) & 0xFF
-        if k == 27:
+        print("Computer Vision System")
+        print("Enter choice:")
+        print("1. Shape detection and color detection (with shape area analysis) (video)")
+        print("2. Detect Objects (webcam)")
+        print("3. Number of objects (photo)")
+        choice = input()
+        if choice.isdigit():
             break
-    cv2.destroyAllWindows()
+        print("invalid!")
+    if(choice == "2"):
+        detect_Object()
+
+    if(choice == "3"):
+        number_of_objects()
+
+    if(choice == "1"):
+        capture = cv2.VideoCapture("sample1.mp4") #webcam live video
+        cv2.namedWindow("threshold")
+        cv2.createTrackbar("T1", "threshold", 0, 255, lambda x: x)
+        cv2.createTrackbar("T2", "threshold", 0, 255, lambda x: x)
+
+        cv2.namedWindow("color")
+        cv2.createTrackbar("H", "color", 0, 180, lambda x: x)
+        cv2.createTrackbar("S", "color", 0, 255, lambda x: x)
+        cv2.createTrackbar("V", "color", 0, 255, lambda x: x)
+        cv2.createTrackbar("HL", "color", 0, 180, lambda x: x)
+        cv2.createTrackbar("SL", "color", 0, 255, lambda x: x)
+        cv2.createTrackbar("VL", "color", 0, 255, lambda x: x)
+
+        kernel = np.ones((5, 5))
+
+        #Contrast Limited Adaptive Histogram Equalization
+        clahe = cv2.createCLAHE(clipLimit=3., tileGridSize=(8, 8))
+        while True:
+            ret, frame = capture.read()
+            frame_orig = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
+            frame = cv2.bilateralFilter(frame, 9, 75, 75)
+            hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
+
+            lab  = cv2.cvtColor(frame, cv2.COLOR_BGR2LAB)
+            _l, _a, _b = cv2.split(lab) # split on 3 different channels
+            l2 = clahe.apply(_l) #apply CLAHE to the L-channel
+            lab = cv2.merge((l2, _a, _b)) # merge channels
+            contrast = cv2.cvtColor(lab, cv2.COLOR_LAB2BGR)
+            gray = cv2.cvtColor(contrast, cv2.COLOR_BGR2GRAY)
+            thresh1 = cv2.getTrackbarPos("T1", "threshold")
+            thresh2 = cv2.getTrackbarPos("T2", "threshold")
+
+            h_track = cv2.getTrackbarPos("H", "color")
+            s_track = cv2.getTrackbarPos("S", "color")
+            v_track = cv2.getTrackbarPos("V", "color")
+            hl_track = cv2.getTrackbarPos("HL", "color")
+            sl_track = cv2.getTrackbarPos("SL", "color")
+            vl_track = cv2.getTrackbarPos("VL", "color")
+
+            lower = np.array([hl_track, sl_track, vl_track]) #lower tr for color detection
+            upper = np.array([h_track, s_track, v_track]) #upper tr for color detection
+
+            mask = cv2.inRange(hsv, lower, upper)
+            res = cv2.bitwise_and(frame, frame, mask=mask)
+            opening = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)
+            closing = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel)
+
+            canny = cv2.Canny(gray, thresh1, thresh2)
+            dil = cv2.dilate(canny, kernel, iterations = 1)
+            contours, h = cv2.findContours(dil, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+            contours = sorted(contours, key = cv2.contourArea, reverse= True) #sort from biggest to smallest
+
+            contours_color, _ = cv2.findContours(closing, cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)
+            contours_color = sorted(contours_color, key = cv2.contourArea, reverse= True) #sort from biggest to smallest
+
+            if(clicked):
+                clicked_time = datetime.now()
+                # cv2.putText(frame, f"R = {r}, G={g}, B={b}", (mouse_x, mouse_y), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (36, 255, 12), 2)
+                clicked = False
+            if (datetime.now() - clicked_time).total_seconds() < 2:
+                cv2.putText(frame, f"color: {get_colour_name((r, g, b))}", (mouse_x, mouse_y), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (36, 255, 12), 2)
+
+            detect_shapes(frame, contours)
+            detect_colors(frame, contours_color, frame_orig)
+            cv2.imshow("gray", gray)
+            cv2.imshow("mask", mask)
+            cv2.imshow("frame", frame)
+            cv2.imshow("orig", frame_orig)
+
+            cv2.imshow("dil", dil)
+            cv2.imshow("canny", canny)
+            cv2.setMouseCallback("frame", detect_color)
+            k = cv2.waitKey(1) & 0xFF
+            if k == 27:
+                break
+        cv2.destroyAllWindows()
