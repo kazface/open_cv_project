@@ -11,7 +11,7 @@ clicked = False
 clicked_time = datetime.now()
 
 def number_of_objects():
-    original = cv2.imread('brightbullet.png')
+    original = cv2.imread('largest\\brightbullet.png')
 
     # Convert image in grayscale
     gray_image = cv2.cvtColor(original, cv2.COLOR_BGR2GRAY)
@@ -73,12 +73,12 @@ def draw_shape(frame, x, y, w, h, text):
     cv2.putText(frame, text, (x, y), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (36, 255, 12), 2)
 
 
-def detect_colors(frame, contours, orig_frame):
+def detect_colors(frame, contours):
     for contour in contours:  # check area of counter'
         area = cv2.contourArea(contour)
         if(area > 5_000):
             x, y, w, h = cv2.boundingRect(contour)
-            b,g,r = np.mean(orig_frame[y:y + h, x:x + w], axis=(0,1))
+            b,g,r = np.mean(frame[y:y + h, x:x + w], axis=(0,1))
             draw_shape_bottom(frame, x, y, w, h, f"Average color: {get_colour_name((r,g,b))}", h//2, font_suze=0.4)
     pass
 
@@ -161,7 +161,22 @@ def get_colour_name(requested_colour):
 
 
 def detect_Object():
-    Live_cam = cv2.VideoCapture(0)
+    while True:
+        print("Detect Objects")
+        print("1.WebCam")
+        print("2.Video ")
+        what_capture = input()
+        if what_capture == "1":
+            what_capture = 0
+            break
+        elif what_capture == "2":
+            print("Enter video name (in 'largest' folder) ")
+            what_capture = "largest\\" + input()
+            break
+        print("invalid!")
+    print("Loading!")
+
+    Live_cam = cv2.VideoCapture(what_capture)
     Live_cam.set(3,1280)
     Live_cam.set(4,720)
     Live_cam.set(10,70)
@@ -179,9 +194,11 @@ def detect_Object():
     net.setInputScale(1.0/ 127.5)
     net.setInputMean((127.5, 127.5, 127.5))
     net.setInputSwapRB(True)
-
+    print("Started!")
     while True:
-        success,img = Live_cam.read()
+        success, img = Live_cam.read()
+        cv2.imshow("orig",img)
+
         objectID, confs, bbox = net.detect(img,confThreshold=threshold)
         if len(objectID) != 0:
             for classId, confidence,box in zip(objectID.flatten(),confs.flatten(),bbox):
@@ -190,7 +207,8 @@ def detect_Object():
                 #Add the object name
                 cv2.putText(img,objectname[classId-1].upper(),(box[0]+10,box[1]+30),cv2.FONT_HERSHEY_COMPLEX,1,(0,255,0),2)
                 cv2.putText(img,str(round(confidence*100,2)),(box[0]+200,box[1]+30),cv2.FONT_HERSHEY_COMPLEX,1,(0,255,0),2)
-        cv2.imshow("Output",resize(img))
+
+        cv2.imshow("Output",img)
         cv2.waitKey(1)
 
 
@@ -200,8 +218,8 @@ if __name__ == '__main__':
     while True:
         print("Computer Vision System")
         print("Enter choice:")
-        print("1. Shape detection and color detection (with shape area analysis) (video)")
-        print("2. Detect Objects (webcam)")
+        print("1. Shape detection and color detection (with shape area analysis) (video/webcam)")
+        print("2. Detect Objects (video/webcam)")
         print("3. Number of objects (photo)")
         choice = input()
         if choice.isdigit():
@@ -214,11 +232,25 @@ if __name__ == '__main__':
         number_of_objects()
 
     if(choice == "1"):
-        capture = cv2.VideoCapture("sample1.mp4") #webcam live video
+
+        while True:
+            print("Shape detection and color detection (with shape area analysis)")
+            print("1.WebCam")
+            print("2.Video ")
+            what_capture = input()
+            if what_capture == "1":
+                what_capture = 0
+                break
+            elif what_capture == "2":
+                print("Enter video name (in 'largest' folder) ")
+                what_capture = "largest\\" + input()
+                break
+            print("invalid!")
+
+        capture = cv2.VideoCapture(what_capture) #webcam live video
         cv2.namedWindow("threshold")
         cv2.createTrackbar("T1", "threshold", 0, 255, lambda x: x)
         cv2.createTrackbar("T2", "threshold", 0, 255, lambda x: x)
-
         cv2.namedWindow("color")
         cv2.createTrackbar("H", "color", 0, 180, lambda x: x)
         cv2.createTrackbar("S", "color", 0, 255, lambda x: x)
@@ -233,6 +265,8 @@ if __name__ == '__main__':
         clahe = cv2.createCLAHE(clipLimit=3., tileGridSize=(8, 8))
         while True:
             ret, frame = capture.read()
+            cv2.imshow("orig", frame)
+
             frame_orig = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
             frame = cv2.bilateralFilter(frame, 9, 75, 75)
             hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
@@ -255,20 +289,26 @@ if __name__ == '__main__':
 
             lower = np.array([hl_track, sl_track, vl_track]) #lower tr for color detection
             upper = np.array([h_track, s_track, v_track]) #upper tr for color detection
-
             mask = cv2.inRange(hsv, lower, upper)
             res = cv2.bitwise_and(frame, frame, mask=mask)
             opening = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)
             closing = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel)
 
+
+
             canny = cv2.Canny(gray, thresh1, thresh2)
             dil = cv2.dilate(canny, kernel, iterations = 1)
             contours, h = cv2.findContours(dil, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
+
+
             contours = sorted(contours, key = cv2.contourArea, reverse= True) #sort from biggest to smallest
+
 
             contours_color, _ = cv2.findContours(closing, cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)
             contours_color = sorted(contours_color, key = cv2.contourArea, reverse= True) #sort from biggest to smallest
+
+
 
             if(clicked):
                 clicked_time = datetime.now()
@@ -278,12 +318,10 @@ if __name__ == '__main__':
                 cv2.putText(frame, f"color: {get_colour_name((r, g, b))}", (mouse_x, mouse_y), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (36, 255, 12), 2)
 
             detect_shapes(frame, contours)
-            detect_colors(frame, contours_color, frame_orig)
+            detect_colors(frame, contours_color)
             cv2.imshow("gray", gray)
             cv2.imshow("mask", mask)
             cv2.imshow("frame", frame)
-            cv2.imshow("orig", frame_orig)
-
             cv2.imshow("dil", dil)
             cv2.imshow("canny", canny)
             cv2.setMouseCallback("frame", detect_color)

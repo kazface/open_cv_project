@@ -2,7 +2,7 @@ import cv2
 import matplotlib.pyplot as plt
 import numpy as np
 
-image= cv2.imread('../brightbullet.png', cv2.IMREAD_GRAYSCALE)
+image= cv2.imread('brightbullet.png', cv2.IMREAD_GRAYSCALE)
 original_image= image
 
 def Lobject():
